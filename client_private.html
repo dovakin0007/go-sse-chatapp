@@ -1,0 +1,154 @@
+<!-- ai generated  -->
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Private Chat Client</title>
+        <style>
+            body {
+                font-family: Arial, sans-serif;
+                margin: 20px;
+            }
+            #chat {
+                border: 1px solid #ccc;
+                padding: 10px;
+                max-height: 300px;
+                overflow-y: auto;
+                margin-bottom: 10px;
+            }
+            input,
+            button {
+                margin: 5px 0;
+            }
+        </style>
+    </head>
+    <body>
+        <h1>Private Chat Client</h1>
+
+        <div id="login-section">
+            <h2>Login</h2>
+            <input
+                type="text"
+                id="username"
+                placeholder="Enter your username"
+            />
+            <button onclick="login()">Login</button>
+            <p id="login-status"></p>
+        </div>
+
+        <div id="chat-section" style="display: none">
+            <h2>Private Chat</h2>
+            <input type="text" id="userA" placeholder="Your username" />
+            <input type="text" id="userB" placeholder="Friend's username" />
+            <button onclick="joinPrivateRoom()">Join Private Room</button>
+
+            <div id="chat"></div>
+
+            <input type="text" id="message" placeholder="Enter your message" />
+            <button onclick="sendMessage()">Send</button>
+        </div>
+
+        <script>
+            let username = "";
+            let eventSource = null;
+            let userA = "";
+            let userB = "";
+
+            function login() {
+                username = document.getElementById("username").value;
+                if (!username) {
+                    alert("Please enter a username.");
+                    return;
+                }
+
+                fetch(`http://localhost:8080/login?username=${username}`)
+                    .then((response) => response.text())
+                    .then((data) => {
+                        document.getElementById("login-status").innerText =
+                            data;
+                        if (
+                            data === "User created" ||
+                            data === "User already exists"
+                        ) {
+                            document.getElementById(
+                                "login-section",
+                            ).style.display = "none";
+                            document.getElementById(
+                                "chat-section",
+                            ).style.display = "block";
+                            document.getElementById("userA").value = username;
+                        }
+                    })
+                    .catch((error) => {
+                        console.error("Error logging in:", error);
+                    });
+            }
+
+            function joinPrivateRoom() {
+                userA = document.getElementById("userA").value;
+                userB = document.getElementById("userB").value;
+
+                if (!userA || !userB) {
+                    alert("Please enter both usernames.");
+                    return;
+                }
+
+                if (eventSource) {
+                    eventSource.close();
+                }
+
+                const roomUrl = `http://localhost:8080/private?userA=${userA}&userB=${userB}&username=${username}`;
+                eventSource = new EventSource(roomUrl);
+
+                eventSource.onmessage = function (event) {
+                    const chat = document.getElementById("chat");
+                    const data = JSON.parse(event.data);
+                    const message = `${data.username}: ${data.message}`;
+                    chat.innerHTML += `<p>${message}</p>`;
+                    chat.scrollTop = chat.scrollHeight;
+                };
+
+                eventSource.onerror = function () {
+                    console.error("EventSource error");
+                    eventSource.close();
+                };
+            }
+
+            function sendMessage() {
+                const message = document.getElementById("message").value;
+
+                if (!message) {
+                    alert("Please enter a message.");
+                    return;
+                }
+
+                const payload = new URLSearchParams({
+                    userA: userA,
+                    userB: userB,
+                    username: username,
+                    message: message,
+                });
+
+                fetch("http://localhost:8080/private/send", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/x-www-form-urlencoded",
+                    },
+                    body: payload.toString(),
+                })
+                    .then((response) => response.text())
+                    .then((data) => {
+                        if (data !== "OK") {
+                            alert("Error sending message.");
+                        }
+                    })
+                    .catch((error) => {
+                        console.error("Error sending message:", error);
+                    });
+
+                document.getElementById("message").value = "";
+            }
+        </script>
+    </body>
+</html>
