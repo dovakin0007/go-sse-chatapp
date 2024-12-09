@@ -8,3 +8,9 @@ var Users = struct {
 }{
 	List: make(map[string]bool),
 }
+
+type Send struct {
+	Username string `json:"username"`
+	Message  string `json:"message"`
+	Roomname string `json:"room"`
+}

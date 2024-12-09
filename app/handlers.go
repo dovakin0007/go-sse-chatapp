@@ -3,6 +3,7 @@ package app
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 )
 
@@ -39,12 +40,6 @@ func getOrCreatePrivateRoom(userA, userB string) (*Room, error) {
 	room.AllowedUsers[userA] = true
 	room.AllowedUsers[userB] = true
 	return room, nil
-}
-
-func addUser(username string) {
-	Users.Lock()
-	defer Users.Unlock()
-	Users.List[username] = true
 }
 
 func userExists(username string) bool {
@@ -122,16 +117,34 @@ func SsePrivateRoomHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func SendMessageHandler(w http.ResponseWriter, r *http.Request) {
-	setupHeaders(w)
+	setHeadersSend(w)
 	sendMessage(w, r, false)
 }
 
 func SendMessageToPrivateRoom(w http.ResponseWriter, r *http.Request) {
-	setupHeaders(w)
+	setHeadersSend(w)
 	sendMessage(w, r, true)
 }
 
 func sendMessage(w http.ResponseWriter, r *http.Request, isPrivate bool) {
+	var jsonData2 []byte
+	decoder := json.NewDecoder(r.Body)
+
+	_, e := r.Body.Read(jsonData2)
+	if e != nil {
+		http.Error(w, "unable to deserailize", http.StatusBadRequest)
+		return
+	}
+
+	var sendData Send
+	e = decoder.Decode(&sendData)
+	if e != nil {
+		http.Error(w, "unable to deserailize 2", http.StatusBadRequest)
+		return
+	}
+
+	log.Println(sendData.Roomname)
+
 	var roomName, username, message string
 	username = r.FormValue("username")
 	message = r.FormValue("message")
@@ -207,6 +220,10 @@ func handlePrivateClientConnection(w http.ResponseWriter, r *http.Request, room 
 			return
 		}
 	}
+}
+
+func setHeadersSend(w http.ResponseWriter) {
+	w.Header().Set("Access-Control-Allow-Origin", "*")
 }
 
 func setupHeaders(w http.ResponseWriter) {
